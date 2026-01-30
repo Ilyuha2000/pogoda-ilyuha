@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Ольшаны: Полный график 10 дней</title>
+    <style>
+        :root { --step: 30px; --hour: 60px; --time-h: 50px; }
+        body { background: #eef2f3; font-family: sans-serif; margin: 0; padding: 10px; }
+        
+        .weather-card {
+            background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 1400px; margin: auto; overflow: hidden;
+        }
+
+        .header { padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; background: #fff; }
+
+        .scroll-viewport { 
+            height: 600px; overflow: auto; position: relative; display: flex; background: #fff; 
+        }
+
+        /* Липкая шкала градусов слева */
+        .y-axis-sticky {
+            position: sticky; left: 0; z-index: 500;
+            background: #f8f8f8; border-right: 2px solid #333; width: 55px; display: flex; flex-direction: column;
+        }
+
+        .degree-label {
+            height: var(--step); min-height: var(--step); display: flex;
+            align-items: center; justify-content: center; font-size: 13px;
+            font-weight: bold; color: #444; border-bottom: 1px solid #eee; box-sizing: border-box;
+        }
+
+        .chart-content { position: relative; display: block; }
+
+        /* Зона для мышки (растянута на весь график) */
+        .interactive-area { 
+            position: absolute; top: 0; left: 0; 
+            height: 100%; z-index: 1000;
+            cursor: crosshair;
+        }
+
+        /* СЕТКА - ТЕПЕРЬ ОНА РАСТЯГИВАЕТСЯ */
+        .grid { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; height: 100%; }
+        .grid-row { height: var(--step); border-bottom: 1px solid #f0f0f0; box-sizing: border-box; width: 100%; }
+        .zero-line { border-bottom: 3px solid #555 !important; background: rgba(0,0,0,0.02); }
+
+        /* Вертикальные линии дней */
+        .day-divider {
+            position: absolute; top: 0; bottom: var(--time-h);
+            width: 2px; background: rgba(0,0,0,0.1); z-index: 2;
+        }
+
+        #guide-line {
+            position: absolute; top: 0; bottom: var(--time-h);
+            width: 2px; background: rgba(255, 59, 48, 0.4);
+            display: none; pointer-events: none; z-index: 400;
+        }
+
+        .precip-layer {
+            position: absolute; bottom: var(--time-h); left: 0; 
+            display: flex; align-items: flex-end;
+            width: 100%; height: 100%; pointer-events: none; z-index: 20;
+        }
+        .p-bar { width: var(--hour); background: rgba(0, 122, 255, 0.3); border-right: 1px solid rgba(0,0,0,0.05); }
+
+        #svgGraph { position: absolute; top: 0; left: 0; z-index: 30; pointer-events: none; }
+        #tempPath { 
+            stroke: url(#tempGradient); stroke-width: 5; 
+            stroke-linejoin: round; stroke-linecap: round; fill: none; 
+        }
+
+        .x-axis { 
+            display: flex; height: var(--time-h); background: #fff; 
+            border-top: 2px solid #333; position: absolute; bottom: 0; z-index: 100; 
+        }
+        .time-label { 
+            min-width: var(--hour); text-align: center; font-size: 11px; 
+            display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #eee; 
+        }
+        .day-mark { font-weight: bold; color: #d32f2f; background: #fff5f5; height: 100%; display: flex; align-items: center; justify-content: center; }
+
+        .tooltip {
+            position: fixed; background: rgba(0, 0, 0, 0.9); color: #fff;
+            padding: 12px; border-radius: 8px; font-size: 13px; pointer-events: none;
+            display: none; z-index: 2000; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border-left: 5px solid #ff3b30;
+        }
+    </style>
+</head>
+<body>
+
+<div class="weather-card">
+    <div class="header">
+        <h2 id="title">Ольшаны: Прогноз на 10 дней (Почасово)</h2>
+        <div id="status">Загрузка данных...</div>
+    </div>
+    
+    <div class="scroll-viewport" id="scrollBox">
+        <div class="y-axis-sticky" id="yAxis"></div>
+        
+        <div class="chart-content" id="chartContent">
+            <div class="interactive-area" id="interactiveArea"></div>
+            <div id="guide-line"></div>
+            <div class="grid" id="grid"></div>
+            <div class="precip-layer" id="precipLayer"></div>
+            
+            <svg id="svgGraph">
+                <defs>
+                    <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="100%" gradientUnits="userSpaceOnUse">
+                        <stop id="stop-red" stop-color="#ff3b30" />
+                        <stop id="stop-zero-red" offset="0" stop-color="#ff3b30" />
+                        <stop id="stop-zero-blue" offset="0" stop-color="#007aff" />
+                        <stop id="stop-blue" stop-color="#007aff" />
+                    </linearGradient>
+                </defs>
+                <path id="tempPath" d="" />
+            </svg>
+            
+            <div class="x-axis" id="xAxis"></div>
+        </div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+    const MAX_T = 35, MIN_T = -30, STEP = 30, HOUR_W = 60, DAYS = 10;
+    let weatherData = [];
+
+    function setup() {
+        const totalW = DAYS * 24 * HOUR_W;
+        const totalH = (MAX_T - MIN_T + 1) * STEP;
+        const totalFullH = totalH + 50; 
+
+        // 1. Шкала градусов
+        const yAxis = document.getElementById('yAxis');
+        const grid = document.getElementById('grid');
+        grid.style.width = totalW + 'px'; // РАСТЯГИВАЕМ СЕТКУ НА ВСЮ ДЛИНУ
+
+        for (let t = MAX_T; t >= MIN_T; t--) {
+            const d = document.createElement('div');
+            d.className = 'degree-label'; d.innerText = (t > 0 ? '+' : '') + t;
+            yAxis.appendChild(d);
+            
+            const r = document.createElement('div');
+            r.className = 'grid-row' + (t === 0 ? ' zero-line' : '');
+            grid.appendChild(r);
+        }
+
+        // 2. Вертикальные линии дней
+        for (let d = 0; d <= DAYS; d++) {
+            const line = document.createElement('div');
+            line.className = 'day-divider';
+            line.style.left = (d * 24 * HOUR_W) + 'px';
+            grid.appendChild(line);
+        }
+
+        const content = document.getElementById('chartContent');
+        content.style.width = totalW + 'px';
+        content.style.height = totalFullH + 'px';
+        
+        document.getElementById('interactiveArea').style.width = totalW + 'px';
+        
+        const svg = document.getElementById('svgGraph');
+        svg.setAttribute('width', totalW);
+        svg.setAttribute('height', totalH);
+
+        const zeroY = MAX_T * STEP;
+        document.getElementById('stop-red').setAttribute('offset', '0%');
+        document.getElementById('stop-zero-red').setAttribute('offset', (zeroY / totalH * 100) + '%');
+        document.getElementById('stop-zero-blue').setAttribute('offset', (zeroY / totalH * 100) + '%');
+        document.getElementById('stop-blue').setAttribute('offset', '100%');
+        
+        fetchData(totalW);
+    }
+
+    async function fetchData(totalW) {
+        try {
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=49.98&longitude=35.91&hourly=temperature_2m,precipitation&timezone=auto&forecast_days=${DAYS}`);
+            const data = await res.json();
+            const { temperature_2m, precipitation, time } = data.hourly;
+            
+            weatherData = time.map((t, i) => ({ time: t, temp: temperature_2m[i], precip: precipitation[i] }));
+
+            const precipLayer = document.getElementById('precipLayer');
+            const xAxis = document.getElementById('xAxis');
+            xAxis.style.width = totalW + 'px'; 
+            let points = [];
+
+            temperature_2m.forEach((t, i) => {
+                const x = (i * HOUR_W) + (HOUR_W / 2);
+                const y = (MAX_T - t) * STEP;
+                points.push(`${x},${y}`);
+
+                const bar = document.createElement('div');
+                bar.className = 'p-bar';
+                bar.style.height = Math.min(precipitation[i] * 50, 300) + 'px';
+                precipLayer.appendChild(bar);
+
+                const lbl = document.createElement('div');
+                lbl.className = 'time-label';
+                const dateObj = new Date(time[i]);
+                const hh = time[i].split('T')[1].substring(0, 5);
+                lbl.innerHTML = (hh === "00:00") ? `<div class="day-mark">${dateObj.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</div>` : hh;
+                xAxis.appendChild(lbl);
+            });
+
+            document.getElementById('tempPath').setAttribute('d', 'M ' + points.join(' L '));
+            document.getElementById('status').innerText = `Ольшаны сейчас: ${temperature_2m[new Date().getHours()]}°C`;
+
+            initInteraction();
+            
+            const box = document.getElementById('scrollBox');
+            box.scrollTop = (MAX_T * STEP) - (box.clientHeight / 2);
+            const nowIdx = Math.floor((new Date() - new Date(time[0])) / 3600000);
+            box.scrollLeft = nowIdx * HOUR_W - 100;
+
+        } catch (e) { document.getElementById('status').innerText = "Ошибка сети"; }
+    }
+
+    function initInteraction() {
+        const area = document.getElementById('interactiveArea');
+        const tooltip = document.getElementById('tooltip');
+        const guide = document.getElementById('guide-line');
+
+        area.addEventListener('mousemove', (e) => {
+            const rect = area.getBoundingClientRect();
+            const x = e.clientX - rect.left; 
+            const idx = Math.floor(x / HOUR_W);
+
+            if (weatherData[idx]) {
+                const d = weatherData[idx];
+                const color = d.temp >= 0 ? '#ff3b30' : '#007aff';
+                guide.style.display = 'block';
+                guide.style.left = (idx * HOUR_W + (HOUR_W / 2)) + 'px';
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 20) + 'px';
+                tooltip.style.top = (e.clientY - 40) + 'px';
+                tooltip.style.borderLeftColor = color;
+                tooltip.innerHTML = `
+                    <b style="color:${color}">${new Date(d.time).toLocaleDateString('ru-RU', {day:'numeric', month:'long', weekday:'short'})}</b><br>
+                    Время: <b>${d.time.split('T')[1].substring(0, 5)}</b><br>
+                    Температура: <span style="font-size:18px; color:${color}">${d.temp > 0 ? '+' : ''}${d.temp}°C</span><br>
+                    Осадки: ${d.precip} мм
+                `;
+            }
+        });
+        area.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; guide.style.display = 'none'; });
+    }
+
+    window.onload = setup;
+</script>
+</body>
+</html>
