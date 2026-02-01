@@ -2,17 +2,41 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Ольшаны: Мониторинг</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ольшаны: Мониторинг погоды</title>
+    <meta name="description" content="Мониторинг температуры и осадков в Ольшанах (Дергачёвский район). Интерактивный график погоды онлайн.">
+    
     <style>
         :root { --step: 35px; --hour: 100px; --time-h: 60px; }
-        body { background: #1a1a2e; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; overflow: hidden; }
-        .weather-card { background: #fff; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); max-width: 100%; margin: auto; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 20px); }
+        
+        /* Изменено: убран overflow: hidden для работы свайпа */
+        body { 
+            background: #1a1a2e; 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            min-height: 100vh;
+        }
+
+        .weather-card { 
+            background: #fff; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5); 
+            max-width: 100%; 
+            margin: auto; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            /* Изменено для корректного отображения на мобильных */
+            height: calc(100vh - 20px); 
+            min-height: 500px;
+        }
         
         .header { padding: 15px; background: #222; color: #fff; display: flex; justify-content: space-between; align-items: center; z-index: 2100; position: relative; }
         .header-title h2 { margin: 0; font-size: 20px; }
         .header-title span { font-size: 11px; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 2px; }
 
-        #status { padding: 8px 15px; border-radius: 10px; font-weight: bold; color: #fff; background: #ff3131; }
+        #status { padding: 8px 15px; border-radius: 10px; font-weight: bold; color: #fff; background: #ff3131; white-space: nowrap; }
         
         .scroll-viewport { flex: 1; overflow: auto; position: relative; background: #f0f2f5; display: flex; align-items: flex-start; scroll-behavior: smooth; }
         
@@ -117,7 +141,6 @@
             document.getElementById('chartWrapper').style.width = totalW + 'px';
             document.getElementById('interactiveArea').style.width = totalW + 'px';
 
-            // Настройка градиента (ноль)
             const zeroOffset = ((tMax) / (tMax - tMin + 1)) * 100;
             document.getElementById('grad-zero-1').setAttribute('offset', zeroOffset + '%');
             document.getElementById('grad-zero-2').setAttribute('offset', zeroOffset + '%');
@@ -147,7 +170,6 @@
             
             time.forEach((t, i) => {
                 const x = i * HOUR_W + (HOUR_W / 2);
-                // ИСПРАВЛЕННАЯ ФОРМУЛА: +1 STEP смещает график к линии border-bottom
                 const y = (tMax - temperature_2m[i] + 1) * STEP;
                 points.push(`${x},${y}`);
 
@@ -175,7 +197,6 @@
 
             document.getElementById('tempPath').setAttribute('d', 'M ' + points.join(' L '));
 
-            // Линия "Сейчас" и автопрокрутка
             const now = new Date();
             const hoursOffset = Math.floor((now - new Date(time[0])) / 3600000);
             if (hoursOffset >= 0 && hoursOffset < time.length) {
@@ -184,12 +205,12 @@
 
                 const box = document.getElementById('scrollBox');
                 box.scrollLeft = nowX - (window.innerWidth / 2);
-                // Исправленный скролл по вертикали
                 const nowY = (tMax - temperature_2m[hoursOffset] + 1) * STEP;
                 box.scrollTop = nowY - (box.clientHeight / 2);
 
                 const curP = precipitation[hoursOffset];
                 const curIcon = getPrecipIcon(curP, temperature_2m[hoursOffset]);
+                // Слово "Осадки" добавлено
                 document.getElementById('status').innerText = `${temperature_2m[hoursOffset]}°C | Осадки: ${curIcon} ${curP} мм`;
             }
 
