@@ -2,44 +2,46 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200"> 
     <title>Ольшаны: Мониторинг погоды</title>
-    <meta name="description" content="Мониторинг температуры и осадков в Ольшанах (Дергачёвский район). Интерактивный график погоды онлайн.">
+    <meta name="description" content="Мониторинг температуры и осадков в Ольшанах. Интерактивный график.">
     
     <style>
         :root { --step: 35px; --hour: 100px; --time-h: 60px; }
         
-        /* Изменено: убран overflow: hidden для работы свайпа */
         body { 
             background: #1a1a2e; 
             font-family: 'Segoe UI', sans-serif; 
             margin: 0; 
             padding: 10px; 
-            min-height: 100vh;
+            /* Разрешаем общую прокрутку для свайпа */
+            overflow-y: auto;
+            overflow-x: auto;
         }
 
         .weather-card { 
             background: #fff; 
             border-radius: 20px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.5); 
-            max-width: 100%; 
+            /* Фиксируем минимальную ширину как на ПК */
+            min-width: 1000px; 
             margin: auto; 
             overflow: hidden; 
             display: flex; 
             flex-direction: column; 
-            /* Изменено для корректного отображения на мобильных */
-            height: calc(100vh - 20px); 
-            min-height: 500px;
+            height: calc(100vh - 40px); 
+            min-height: 600px;
         }
         
         .header { padding: 15px; background: #222; color: #fff; display: flex; justify-content: space-between; align-items: center; z-index: 2100; position: relative; }
-        .header-title h2 { margin: 0; font-size: 20px; }
-        .header-title span { font-size: 11px; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 2px; }
+        .header-title h2 { margin: 0; font-size: 22px; }
+        .header-title span { font-size: 12px; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 2px; }
 
-        #status { padding: 8px 15px; border-radius: 10px; font-weight: bold; color: #fff; background: #ff3131; white-space: nowrap; }
+        #status { padding: 10px 20px; border-radius: 12px; font-weight: bold; color: #fff; background: #ff3131; white-space: nowrap; font-size: 18px; }
         
         .scroll-viewport { flex: 1; overflow: auto; position: relative; background: #f0f2f5; display: flex; align-items: flex-start; scroll-behavior: smooth; }
         
+        /* Ось Y (градусы) */
         .y-axis-sticky { 
             position: sticky; left: 0; z-index: 1000; background: #eee; width: 70px; 
             display: flex; flex-direction: column; flex-shrink: 0; border-right: 4px solid #000;
@@ -48,9 +50,11 @@
         .degree-label { height: var(--step); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; box-sizing: border-box; }
 
         .chart-wrapper { position: relative; display: flex; flex-direction: column; }
+        
+        /* Ось X (время) */
         .x-axis { display: flex; height: var(--time-h); background: #222; color: white; position: sticky; top: 0; z-index: 1100; }
-        .time-label { min-width: var(--hour); text-align: center; font-size: 13px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #444; box-sizing: border-box; }
-        .day-mark { font-weight: bold; color: #ffeb3b; }
+        .time-label { min-width: var(--hour); text-align: center; font-size: 14px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #444; box-sizing: border-box; }
+        .day-mark { font-weight: bold; color: #ffeb3b; font-size: 15px; }
 
         .chart-content { position: relative; }
         .grid { position: absolute; top: 0; left: 0; height: 100%; width: 100%; pointer-events: none; z-index: 1; }
@@ -62,7 +66,7 @@
 
         .precip-layer { position: absolute; top: 0; left: 0; display: flex; align-items: flex-end; height: 100%; pointer-events: none; z-index: 10; }
         .p-bar { width: var(--hour); background: rgba(0, 122, 255, 0.4); border-right: 1px solid rgba(255,255,255,0.2); position: relative; display: flex; justify-content: center; }
-        .p-icon { position: absolute; top: -20px; font-size: 14px; }
+        .p-icon { position: absolute; top: -25px; font-size: 16px; }
 
         #svgGraph { position: absolute; top: 0; left: 0; z-index: 30; pointer-events: none; }
         #tempPath { stroke: url(#tempGradient); stroke-width: 6; stroke-linejoin: round; fill: none; stroke-linecap: round; }
@@ -71,9 +75,9 @@
         .interactive-area { position: absolute; top: 0; left: 0; height: 100%; z-index: 1500; cursor: crosshair; }
         
         .tooltip { 
-            position: fixed; background: rgba(0,0,0,0.9); color: #fff; padding: 12px; 
-            border-radius: 10px; font-size: 14px; display: none; z-index: 3000; 
-            pointer-events: none; border-left: 5px solid #007aff; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: fixed; background: rgba(0,0,0,0.95); color: #fff; padding: 15px; 
+            border-radius: 12px; font-size: 16px; display: none; z-index: 3000; 
+            pointer-events: none; border-left: 6px solid #007aff; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
         }
     </style>
 </head>
@@ -210,7 +214,6 @@
 
                 const curP = precipitation[hoursOffset];
                 const curIcon = getPrecipIcon(curP, temperature_2m[hoursOffset]);
-                // Слово "Осадки" добавлено
                 document.getElementById('status').innerText = `${temperature_2m[hoursOffset]}°C | Осадки: ${curIcon} ${curP} мм`;
             }
 
