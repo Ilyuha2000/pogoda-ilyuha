@@ -6,36 +6,30 @@
     <style>
         :root { --step: 35px; --hour: 100px; --time-h: 60px; }
         body { background: #1a1a2e; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; overflow: hidden; }
-        .weather-card { background: #fff; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); max-width: 100%; margin: auto; overflow: hidden; display: flex; flex-direction: column; }
+        .weather-card { background: #fff; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); max-width: 100%; margin: auto; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 20px); }
+        
         .header { padding: 15px; background: #222; color: #fff; display: flex; justify-content: space-between; align-items: center; z-index: 2100; position: relative; }
+        .header-title h2 { margin: 0; font-size: 20px; }
+        .header-title span { font-size: 11px; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 2px; }
+
+        #status { padding: 8px 15px; border-radius: 10px; font-weight: bold; color: #fff; background: #ff3131; }
         
-        .scroll-viewport { height: calc(100vh - 120px); overflow: auto; position: relative; background: #f0f2f5; display: flex; align-items: flex-start; }
+        .scroll-viewport { flex: 1; overflow: auto; position: relative; background: #f0f2f5; display: flex; align-items: flex-start; scroll-behavior: smooth; }
         
-        /* ЛЕВАЯ ШКАЛА ТЕМПЕРАТУРЫ */
         .y-axis-sticky { 
-            position: sticky; left: 0; z-index: 1000; 
-            background: #eee; width: 70px; display: flex; flex-direction: column; flex-shrink: 0;
-            border-right: 4px solid #000; /* Черная вертикальная линия */
-            height: fit-content; margin-top: var(--time-h); /* Отступ под шкалу времени */
+            position: sticky; left: 0; z-index: 1000; background: #eee; width: 70px; 
+            display: flex; flex-direction: column; flex-shrink: 0; border-right: 4px solid #000;
+            margin-top: var(--time-h); 
         }
-        .degree-label { 
-            height: var(--step); min-height: var(--step); 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 14px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; box-sizing: border-box;
-        }
+        .degree-label { height: var(--step); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; box-sizing: border-box; }
 
         .chart-wrapper { position: relative; display: flex; flex-direction: column; }
-        
-        /* ШКАЛА ВРЕМЕНИ - ТЕПЕРЬ СВЕРХУ И ЗАКРЕПЛЕНА */
-        .x-axis { 
-            display: flex; height: var(--time-h); background: #222; color: white; 
-            position: sticky; top: 0; z-index: 1100; width: 100%;
-        }
-        .time-label { min-width: var(--hour); text-align: center; font-size: 13px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #444; }
-        .day-mark { font-weight: bold; color: #ffeb3b; font-size: 14px; }
+        .x-axis { display: flex; height: var(--time-h); background: #222; color: white; position: sticky; top: 0; z-index: 1100; }
+        .time-label { min-width: var(--hour); text-align: center; font-size: 13px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #444; box-sizing: border-box; }
+        .day-mark { font-weight: bold; color: #ffeb3b; }
 
-        .chart-content { position: relative; display: block; }
-        .grid { position: absolute; top: 0; left: 0; height: 100%; pointer-events: none; z-index: 1; }
+        .chart-content { position: relative; }
+        .grid { position: absolute; top: 0; left: 0; height: 100%; width: 100%; pointer-events: none; z-index: 1; }
         .grid-row { height: var(--step); border-bottom: 1px solid #d1d1d1; box-sizing: border-box; }
         .zero-line { border-bottom: 4px solid #222 !important; background: rgba(0,0,0,0.05); }
 
@@ -43,18 +37,19 @@
         #now-line::after { content: "СЕЙЧАС"; position: absolute; top: 80px; left: 10px; background: #ff3131; color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 5px; font-weight: bold; }
 
         .precip-layer { position: absolute; top: 0; left: 0; display: flex; align-items: flex-end; height: 100%; pointer-events: none; z-index: 10; }
-        .p-bar { width: var(--hour); background: rgba(0, 122, 255, 0.7); border-right: 1px solid rgba(255,255,255,0.3); flex-shrink: 0; }
+        .p-bar { width: var(--hour); background: rgba(0, 122, 255, 0.4); border-right: 1px solid rgba(255,255,255,0.2); position: relative; display: flex; justify-content: center; }
+        .p-icon { position: absolute; top: -20px; font-size: 14px; }
 
         #svgGraph { position: absolute; top: 0; left: 0; z-index: 30; pointer-events: none; }
-        #tempPath { stroke: url(#tempGradient); stroke-width: 8; stroke-linejoin: round; fill: none; stroke-linecap: round; }
+        #tempPath { stroke: url(#tempGradient); stroke-width: 6; stroke-linejoin: round; fill: none; stroke-linecap: round; }
         
+        #guide-line { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.3); display: none; z-index: 400; pointer-events: none; }
         .interactive-area { position: absolute; top: 0; left: 0; height: 100%; z-index: 1500; cursor: crosshair; }
-        #guide-line { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.4); display: none; z-index: 400; }
         
         .tooltip { 
             position: fixed; background: rgba(0,0,0,0.9); color: #fff; padding: 12px; 
             border-radius: 10px; font-size: 14px; display: none; z-index: 3000; 
-            pointer-events: none; border-left: 5px solid #ff3131;
+            pointer-events: none; border-left: 5px solid #007aff; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -62,16 +57,17 @@
 
 <div class="weather-card">
     <div class="header">
-        <h2 style="margin:0;">Ольшаны: Мониторинг</h2>
-        <div id="status" style="background:#ff3131; padding:8px 15px; border-radius:10px; font-weight:bold; color:#fff;">Загрузка...</div>
+        <div class="header-title">
+            <span>Дергачёвский район | Харьковская область</span>
+            <h2>Ольшаны: Мониторинг</h2>
+        </div>
+        <div id="status">Загрузка...</div>
     </div>
     
     <div class="scroll-viewport" id="scrollBox">
         <div class="y-axis-sticky" id="yAxis"></div>
-        
         <div class="chart-wrapper" id="chartWrapper">
             <div class="x-axis" id="xAxis"></div>
-            
             <div class="chart-content" id="chartContent">
                 <div class="interactive-area" id="interactiveArea"></div>
                 <div id="guide-line"></div>
@@ -81,10 +77,10 @@
                 <svg id="svgGraph">
                     <defs>
                         <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="100%" gradientUnits="userSpaceOnUse">
-                            <stop id="stop-red" offset="0%" stop-color="#ff3131" />
-                            <stop id="stop-zero-red" offset="50%" stop-color="#ff3131" />
-                            <stop id="stop-zero-blue" offset="50%" stop-color="#007aff" />
-                            <stop id="stop-blue" offset="100%" stop-color="#007aff" />
+                            <stop offset="0%" stop-color="#ff3131" />
+                            <stop id="grad-zero-1" offset="50%" stop-color="#ff3131" />
+                            <stop id="grad-zero-2" offset="50%" stop-color="#007aff" />
+                            <stop offset="100%" stop-color="#007aff" />
                         </linearGradient>
                     </defs>
                     <path id="tempPath" d="" />
@@ -96,132 +92,145 @@
 <div id="tooltip" class="tooltip"></div>
 
 <script>
-    const HOUR_W = 100, STEP = 35, DAYS = 10;
+    const HOUR_W = 100, STEP = 35;
     let weatherData = [];
-    let scrollState = { dx: 0, dy: 0 };
+
+    function getPrecipIcon(amount, temp) {
+        if (amount === 0) return "";
+        return temp <= 0 ? "❄️" : "💧";
+    }
 
     async function init() {
         try {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=49.98&longitude=35.91&hourly=temperature_2m,precipitation&timezone=auto&forecast_days=10`);
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=49.98&longitude=35.91&hourly=temperature_2m,precipitation&timezone=auto&forecast_days=10`;
+            const res = await fetch(url);
             const data = await res.json();
             const { temperature_2m, precipitation, time } = data.hourly;
 
-            const cMax = Math.ceil(Math.max(...temperature_2m)) + 5;
-            const cMin = Math.floor(Math.min(...temperature_2m)) - 10;
-            
-            const totalW = DAYS * 24 * HOUR_W;
-            const totalH = (cMax - cMin + 1) * STEP;
+            const tMax = Math.ceil(Math.max(...temperature_2m)) + 3;
+            const tMin = Math.floor(Math.min(...temperature_2m)) - 3;
+            const totalW = time.length * HOUR_W;
+            const totalH = (tMax - tMin + 1) * STEP;
 
-            const content = document.getElementById('chartContent');
-            const wrapper = document.getElementById('chartWrapper');
-            content.style.width = totalW + 'px';
-            content.style.height = totalH + 'px';
-            wrapper.style.width = totalW + 'px';
-            
-            document.getElementById('grid').style.width = totalW + 'px';
+            document.getElementById('chartContent').style.width = totalW + 'px';
+            document.getElementById('chartContent').style.height = totalH + 'px';
+            document.getElementById('chartWrapper').style.width = totalW + 'px';
             document.getElementById('interactiveArea').style.width = totalW + 'px';
+
+            // Настройка градиента (ноль)
+            const zeroOffset = ((tMax) / (tMax - tMin + 1)) * 100;
+            document.getElementById('grad-zero-1').setAttribute('offset', zeroOffset + '%');
+            document.getElementById('grad-zero-2').setAttribute('offset', zeroOffset + '%');
 
             const yAxis = document.getElementById('yAxis');
             const grid = document.getElementById('grid');
             yAxis.innerHTML = ''; grid.innerHTML = '';
-
-            for (let t = cMax; t >= cMin; t--) {
-                const lbl = document.createElement('div'); lbl.className = 'degree-label'; lbl.innerText = (t > 0 ? '+' : '') + t;
+            
+            for (let t = tMax; t >= tMin; t--) {
+                const lbl = document.createElement('div'); 
+                lbl.className = 'degree-label'; 
+                lbl.innerText = (t > 0 ? '+' : '') + t;
                 yAxis.appendChild(lbl);
-                const row = document.createElement('div'); row.className = 'grid-row' + (t === 0 ? ' zero-line' : '');
+                
+                const row = document.createElement('div'); 
+                row.className = 'grid-row' + (t === 0 ? ' zero-line' : '');
                 grid.appendChild(row);
             }
 
             const svg = document.getElementById('svgGraph');
-            svg.setAttribute('width', totalW); svg.setAttribute('height', totalH);
-            const zeroPos = (cMax * STEP) / totalH * 100;
-            document.getElementById('stop-zero-red').setAttribute('offset', zeroPos + '%');
-            document.getElementById('stop-zero-blue').setAttribute('offset', zeroPos + '%');
-
-            weatherData = time.map((t, i) => ({ time: t, temp: temperature_2m[i], precip: precipitation[i] }));
-            const xAxis = document.getElementById('xAxis');
+            svg.setAttribute('width', totalW); 
+            svg.setAttribute('height', totalH);
             
             let points = [];
-            temperature_2m.forEach((t, i) => {
+            const xAxis = document.getElementById('xAxis');
+            const pLayer = document.getElementById('precipLayer');
+            
+            time.forEach((t, i) => {
                 const x = i * HOUR_W + (HOUR_W / 2);
-                const y = (cMax - t) * STEP;
+                // ИСПРАВЛЕННАЯ ФОРМУЛА: +1 STEP смещает график к линии border-bottom
+                const y = (tMax - temperature_2m[i] + 1) * STEP;
                 points.push(`${x},${y}`);
-
-                const bar = document.createElement('div');
-                bar.className = 'p-bar';
-                const h = (precipitation[i] || 0) * 150;
-                bar.style.height = (h > 0 && h < 5) ? '5px' : h + 'px';
-                document.getElementById('precipLayer').appendChild(bar);
 
                 const lbl = document.createElement('div');
                 lbl.className = 'time-label';
-                const d = new Date(time[i]);
-                lbl.innerHTML = (time[i].endsWith("00:00")) ? `<span class="day-mark">${d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span>` : time[i].split('T')[1].substring(0,5);
+                const d = new Date(t);
+                lbl.innerHTML = t.endsWith("00:00") ? `<span class="day-mark">${d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span>` : t.split('T')[1].substring(0,5);
                 xAxis.appendChild(lbl);
+
+                const bar = document.createElement('div');
+                bar.className = 'p-bar';
+                bar.style.height = (precipitation[i] * 100) + 'px';
+                
+                const icon = getPrecipIcon(precipitation[i], temperature_2m[i]);
+                if (icon) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'p-icon';
+                    iconSpan.innerText = icon;
+                    bar.appendChild(iconSpan);
+                }
+                pLayer.appendChild(bar);
+
+                weatherData.push({ time: t, temp: temperature_2m[i], precip: precipitation[i], icon: icon });
             });
 
             document.getElementById('tempPath').setAttribute('d', 'M ' + points.join(' L '));
 
+            // Линия "Сейчас" и автопрокрутка
             const now = new Date();
-            const start = new Date(time[0]);
-            const hoursPassed = (now - start) / 3600000;
-            const nowX = hoursPassed * HOUR_W;
-            document.getElementById('now-line').style.left = nowX + 'px';
-            
-            const box = document.getElementById('scrollBox');
-            box.scrollLeft = nowX - (window.innerWidth / 2);
-            box.scrollTop = (cMax - temperature_2m[Math.floor(hoursPassed)]) * STEP - 100;
+            const hoursOffset = Math.floor((now - new Date(time[0])) / 3600000);
+            if (hoursOffset >= 0 && hoursOffset < time.length) {
+                const nowX = hoursOffset * HOUR_W;
+                document.getElementById('now-line').style.left = nowX + 'px';
 
-            document.getElementById('status').innerText = `${temperature_2m[Math.floor(hoursPassed)]}°C | Осадки: ${precipitation[Math.floor(hoursPassed)]} мм`;
+                const box = document.getElementById('scrollBox');
+                box.scrollLeft = nowX - (window.innerWidth / 2);
+                // Исправленный скролл по вертикали
+                const nowY = (tMax - temperature_2m[hoursOffset] + 1) * STEP;
+                box.scrollTop = nowY - (box.clientHeight / 2);
 
-            setupAutoScroll();
-        } catch (e) { console.error(e); }
+                const curP = precipitation[hoursOffset];
+                const curIcon = getPrecipIcon(curP, temperature_2m[hoursOffset]);
+                document.getElementById('status').innerText = `${temperature_2m[hoursOffset]}°C | Осадки: ${curIcon} ${curP} мм`;
+            }
+
+            setupInteraction();
+        } catch (e) { 
+            console.error(e);
+            document.getElementById('status').innerText = "Ошибка сети"; 
+        }
     }
 
-    function setupAutoScroll() {
-        const box = document.getElementById('scrollBox');
+    function setupInteraction() {
         const area = document.getElementById('interactiveArea');
         const tooltip = document.getElementById('tooltip');
         const guide = document.getElementById('guide-line');
 
         area.onmousemove = (e) => {
-            const rect = box.getBoundingClientRect();
+            const rect = area.getBoundingClientRect();
             const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const margin = 100;
-            const speed = 20;
-            
-            scrollState.dx = x > rect.width - margin ? speed : (x < margin + 70 ? -speed : 0);
-            scrollState.dy = y > rect.height - margin ? speed : (y < margin + 60 ? -speed : 0);
-
-            const chartX = e.clientX - area.getBoundingClientRect().left;
-            const idx = Math.floor(chartX / HOUR_W);
+            const idx = Math.floor(x / HOUR_W);
             
             if (weatherData[idx]) {
                 const d = weatherData[idx];
+                const dateObj = new Date(d.time);
                 guide.style.display = 'block';
                 guide.style.left = (idx * HOUR_W + (HOUR_W / 2)) + 'px';
+                
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 20) + 'px';
                 tooltip.style.top = (e.clientY - 20) + 'px';
                 tooltip.style.borderLeftColor = d.temp >= 0 ? '#ff3131' : '#007aff';
-                tooltip.innerHTML = `<b>${new Date(d.time).toLocaleDateString('ru-RU', {day:'numeric', month:'long'})}</b><br>Время: ${d.time.split('T')[1].substring(0, 5)}<br>Темп: ${d.temp}°C<br>Осадки: ${d.precip} мм`;
+                
+                tooltip.innerHTML = `
+                    <b>${dateObj.toLocaleDateString('ru-RU', {day:'numeric', month:'long'})}</b><br>
+                    Время: ${d.time.split('T')[1].substring(0, 5)}<br>
+                    Темп: <b>${d.temp}°C</b><br>
+                    Осадки: ${d.icon} ${d.precip} мм
+                `;
             }
         };
-
-        area.onmouseleave = () => {
-            scrollState.dx = 0; scrollState.dy = 0;
-            tooltip.style.display = 'none'; guide.style.display = 'none';
-        };
-
-        function step() {
-            if (scrollState.dx !== 0) box.scrollLeft += scrollState.dx;
-            if (scrollState.dy !== 0) box.scrollTop += scrollState.dy;
-            requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
+        area.onmouseleave = () => { tooltip.style.display = 'none'; guide.style.display = 'none'; };
     }
-
     window.onload = init;
 </script>
 </body>
